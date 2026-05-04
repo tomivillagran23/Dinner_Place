@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'ForkDate — Tu wishlist de restaurantes',
-  description: 'Guarda y explora los restaurantes que quieres visitar con tu pareja',
+  title: 'DinnerPlace — Tu lista de restaurantes compartida',
+  description: 'Guarda y explora restaurantes con tu pareja, amigos o quien quieras',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

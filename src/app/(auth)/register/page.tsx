@@ -3,7 +3,7 @@
 import { useActionState } from 'react'
 import { signUp } from '@/lib/actions/auth'
 import Link from 'next/link'
-import { Heart, Loader2 } from 'lucide-react'
+import { UtensilsCrossed, Loader2 } from 'lucide-react'
 
 export default function RegisterPage() {
   const [state, formAction, isPending] = useActionState(signUp, null)
@@ -13,10 +13,10 @@ export default function RegisterPage() {
       <div className="w-full max-w-sm animate-slide-up">
         <div className="flex flex-col items-center mb-8">
           <div className="flex items-center gap-2 mb-2">
-            <Heart className="w-7 h-7 text-[#FF4D4D] fill-[#FF4D4D]" />
-            <span className="text-2xl font-bold tracking-tight">ForkDate</span>
+            <UtensilsCrossed className="w-7 h-7 text-[#FF4D4D]" />
+            <span className="text-2xl font-bold tracking-tight">DinnerPlace</span>
           </div>
-          <p className="text-[#737373] text-sm">Tu wishlist de restaurantes en pareja</p>
+          <p className="text-[#737373] text-sm">Tu lista de restaurantes compartida</p>
         </div>
 
         <div className="glass rounded-2xl p-6">

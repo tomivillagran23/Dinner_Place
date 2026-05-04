@@ -13,9 +13,7 @@ export async function proxy(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     {
       cookies: {
-        getAll() {
-          return request.cookies.getAll()
-        },
+        getAll() { return request.cookies.getAll() },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
           supabaseResponse = NextResponse.next({ request })
@@ -28,23 +26,29 @@ export async function proxy(request: NextRequest) {
   )
 
   const { data: { user } } = await supabase.auth.getUser()
-
   const { pathname } = request.nextUrl
 
-  const publicRoutes = ['/login', '/register']
-  const isPublicRoute = publicRoutes.some(r => pathname.startsWith(r))
+  const isPublicRoute = ['/login', '/register'].some(r => pathname.startsWith(r))
+  const isSpacesRoute = pathname.startsWith('/espacios')
 
   if (!user && !isPublicRoute) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
   if (user && isPublicRoute) {
-    return NextResponse.redirect(new URL('/', request.url))
+    return NextResponse.redirect(new URL('/espacios', request.url))
+  }
+
+  if (user && !isPublicRoute && !isSpacesRoute) {
+    const spaceId = request.cookies.get('dp_space')?.value
+    if (!spaceId) {
+      return NextResponse.redirect(new URL('/espacios', request.url))
+    }
   }
 
   return supabaseResponse
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|api|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
 }

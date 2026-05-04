@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { getActiveSpaceId } from '@/lib/space'
 
 function parseLatLng(mapsUrl: string): { lat: number | null; lng: number | null } {
   const patterns = [
@@ -24,13 +25,10 @@ export async function createRestaurant(formData: FormData) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'No autenticado' }
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('couple_id')
-    .eq('id', user.id)
-    .single()
+  const spaceId = await getActiveSpaceId()
+  if (!spaceId) return { error: 'No hay espacio activo' }
 
-  if (!profile?.couple_id) return { error: 'No tienes un espacio de pareja activo' }
+  const profile = { couple_id: spaceId }
 
   const mapsUrl = formData.get('google_maps_url') as string
   const { lat, lng } = mapsUrl ? parseLatLng(mapsUrl) : { lat: null, lng: null }

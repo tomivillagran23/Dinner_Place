@@ -2,26 +2,34 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Heart, Home, Map, LogOut, Copy, Check, Settings } from 'lucide-react'
+import { UtensilsCrossed, Home, Map, LogOut, Copy, Check, ChevronDown } from 'lucide-react'
 import { signOut } from '@/lib/actions/auth'
+import { switchSpace } from '@/lib/actions/spaces'
 import { useState } from 'react'
 import { toast } from 'sonner'
 
+interface Space { id: string; name: string; invite_code: string }
+
 interface Props {
-  profile: { display_name: string | null; avatar_url: string | null; couple_id: string | null; email?: string | null } | null
-  couple: { invite_code: string } | null
+  profile: { display_name: string | null; avatar_url: string | null; email?: string | null } | null
+  space: Space | null
+  userSpaces: Space[]
 }
 
-export default function Navbar({ profile, couple }: Props) {
+export default function Navbar({ profile, space, userSpaces }: Props) {
   const pathname = usePathname()
   const [copied, setCopied] = useState(false)
-  const [showMenu, setShowMenu] = useState(false)
+  const [showUserMenu, setShowUserMenu] = useState(false)
+  const [showSpaceMenu, setShowSpaceMenu] = useState(false)
+
+  const displayName = profile?.display_name ?? profile?.email?.split('@')[0] ?? 'Usuario'
+  const initial = displayName[0]?.toUpperCase() ?? '?'
 
   function copyCode() {
-    if (couple?.invite_code) {
-      navigator.clipboard.writeText(couple.invite_code)
+    if (space?.invite_code) {
+      navigator.clipboard.writeText(space.invite_code)
       setCopied(true)
-      toast.success('Código copiado al portapapeles')
+      toast.success('Código copiado')
       setTimeout(() => setCopied(false), 2000)
     }
   }
@@ -33,39 +41,88 @@ export default function Navbar({ profile, couple }: Props) {
 
   return (
     <>
-      {/* Top bar */}
       <header className="fixed top-0 left-0 right-0 z-50 glass-strong border-b border-[rgba(255,255,255,0.06)]">
-        <div className="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <Heart className="w-5 h-5 text-[#FF4D4D] fill-[#FF4D4D]" />
-            <span className="font-bold text-lg tracking-tight">ForkDate</span>
+        <div className="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between gap-3">
+          {/* Brand */}
+          <Link href="/" className="flex items-center gap-2 flex-shrink-0">
+            <UtensilsCrossed className="w-5 h-5 text-[#FF4D4D]" />
+            <span className="font-bold text-lg tracking-tight">DinnerPlace</span>
           </Link>
 
-          <div className="flex items-center gap-3">
-            {couple && (
-              <button
-                onClick={copyCode}
-                className="flex items-center gap-1.5 text-xs bg-[rgba(255,77,77,0.1)] border border-[rgba(255,77,77,0.2)] text-[#FF4D4D] px-3 py-1.5 rounded-full hover:bg-[rgba(255,77,77,0.2)] transition-colors"
-              >
-                {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                <span className="font-mono font-semibold">{couple.invite_code}</span>
-              </button>
+          <div className="flex items-center gap-2 min-w-0">
+            {/* Space switcher */}
+            {space && (
+              <div className="relative">
+                <button
+                  onClick={() => { setShowSpaceMenu(v => !v); setShowUserMenu(false) }}
+                  className="flex items-center gap-1.5 text-xs bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.08)] px-3 py-1.5 rounded-full hover:border-[rgba(255,255,255,0.2)] transition-colors max-w-[140px]"
+                >
+                  <span className="truncate font-medium">{space.name}</span>
+                  <ChevronDown className="w-3 h-3 text-[#737373] flex-shrink-0" />
+                </button>
+
+                {showSpaceMenu && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setShowSpaceMenu(false)} />
+                    <div className="absolute right-0 top-10 z-20 glass rounded-xl border border-[rgba(255,255,255,0.08)] overflow-hidden min-w-[200px] animate-fade-in">
+                      <div className="px-4 py-2.5 border-b border-[rgba(255,255,255,0.06)]">
+                        <p className="text-xs text-[#737373]">Espacio activo</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <p className="text-sm font-semibold flex-1 truncate">{space.name}</p>
+                          <button onClick={copyCode} className="text-[#737373] hover:text-[#FF4D4D] transition-colors">
+                            {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                          </button>
+                        </div>
+                        <p className="text-xs font-mono text-[#4A4A4A] mt-0.5">{space.invite_code}</p>
+                      </div>
+
+                      {userSpaces.filter(s => s.id !== space.id).length > 0 && (
+                        <div className="border-b border-[rgba(255,255,255,0.06)]">
+                          <p className="text-xs text-[#4A4A4A] px-4 pt-2 pb-1">Cambiar a</p>
+                          {userSpaces
+                            .filter(s => s.id !== space.id)
+                            .map(s => (
+                              <form key={s.id} action={switchSpace.bind(null, s.id)}>
+                                <button
+                                  type="submit"
+                                  className="w-full text-left px-4 py-2.5 text-sm hover:bg-[rgba(255,255,255,0.05)] transition-colors truncate"
+                                >
+                                  {s.name}
+                                </button>
+                              </form>
+                            ))
+                          }
+                        </div>
+                      )}
+
+                      <Link
+                        href="/espacios"
+                        onClick={() => setShowSpaceMenu(false)}
+                        className="flex items-center px-4 py-2.5 text-sm text-[#737373] hover:text-white hover:bg-[rgba(255,255,255,0.05)] transition-colors"
+                      >
+                        Gestionar espacios
+                      </Link>
+                    </div>
+                  </>
+                )}
+              </div>
             )}
 
+            {/* User avatar */}
             <div className="relative">
               <button
-                onClick={() => setShowMenu(v => !v)}
-                className="w-8 h-8 rounded-full bg-[rgba(255,77,77,0.15)] flex items-center justify-center text-sm font-semibold text-[#FF4D4D] hover:bg-[rgba(255,77,77,0.25)] transition-colors"
+                onClick={() => { setShowUserMenu(v => !v); setShowSpaceMenu(false) }}
+                className="w-8 h-8 rounded-full bg-[rgba(255,77,77,0.15)] flex items-center justify-center text-sm font-semibold text-[#FF4D4D] hover:bg-[rgba(255,77,77,0.25)] transition-colors flex-shrink-0"
               >
-                {(profile?.display_name ?? profile?.email)?.[0]?.toUpperCase() ?? '?'}
+                {initial}
               </button>
 
-              {showMenu && (
+              {showUserMenu && (
                 <>
-                  <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
+                  <div className="fixed inset-0 z-10" onClick={() => setShowUserMenu(false)} />
                   <div className="absolute right-0 top-10 z-20 glass rounded-xl border border-[rgba(255,255,255,0.08)] overflow-hidden min-w-[160px] animate-fade-in">
                     <div className="px-4 py-3 border-b border-[rgba(255,255,255,0.06)]">
-                      <p className="text-sm font-semibold">{profile?.display_name ?? profile?.email?.split('@')[0] ?? 'Usuario'}</p>
+                      <p className="text-sm font-semibold">{displayName}</p>
                     </div>
                     <form action={signOut}>
                       <button
@@ -97,7 +154,7 @@ export default function Navbar({ profile, couple }: Props) {
                   active ? 'text-[#FF4D4D]' : 'text-[#737373] hover:text-white'
                 }`}
               >
-                <Icon className={`w-5 h-5 ${active ? 'fill-[rgba(255,77,77,0.15)]' : ''}`} strokeWidth={active ? 2.5 : 1.5} />
+                <Icon className="w-5 h-5" strokeWidth={active ? 2.5 : 1.5} />
                 {label}
               </Link>
             )

@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { getActiveSpaceId } from '@/lib/space'
 import RestaurantForm from '@/components/RestaurantForm'
 import { createRestaurant } from '@/lib/actions/restaurants'
 import Link from 'next/link'
@@ -10,18 +11,13 @@ export default async function AgregarPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('couple_id')
-    .eq('id', user.id)
-    .single()
-
-  if (!profile?.couple_id) redirect('/onboarding')
+  const spaceId = await getActiveSpaceId()
+  if (!spaceId) redirect('/espacios')
 
   const { data: tags } = await supabase
     .from('tags')
     .select('*')
-    .eq('couple_id', profile.couple_id)
+    .eq('couple_id', spaceId)
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-4 animate-fade-in">
@@ -31,7 +27,6 @@ export default async function AgregarPage() {
         </Link>
         <h1 className="text-xl font-bold">Agregar restaurante</h1>
       </div>
-
       <RestaurantForm allTags={tags ?? []} onSubmit={createRestaurant} />
     </div>
   )
