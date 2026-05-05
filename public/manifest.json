@@ -1,0 +1,17 @@
+{
+  "name": "DinnerPlace",
+  "short_name": "DinnerPlace",
+  "description": "Tu lista de restaurantes compartida",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0A0A0A",
+  "theme_color": "#FF4D4D",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "48x48",
+      "type": "image/x-icon"
+    }
+  ]
+}

@@ -35,6 +35,9 @@ export default function PushSetup() {
   const [show, setShow] = useState(false)
 
   useEffect(() => {
+    console.log('[Push] serviceWorker:', 'serviceWorker' in navigator)
+    console.log('[Push] PushManager:', 'PushManager' in window)
+    console.log('[Push] Notification:', typeof Notification !== 'undefined' ? Notification.permission : 'unavailable')
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) return
     const permission = Notification.permission
     if (permission === 'granted') {

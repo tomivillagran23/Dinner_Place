@@ -16,6 +16,12 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: 'DinnerPlace — Tu lista de restaurantes compartida',
   description: 'Guarda y explora restaurantes con tu pareja, amigos o quien quieras',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'DinnerPlace',
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
