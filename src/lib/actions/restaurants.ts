@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { getActiveSpaceId } from '@/lib/space'
@@ -78,6 +79,36 @@ export async function createRestaurant(formData: FormData) {
     await supabase.from('restaurant_tags').insert(
       tagIds.map(tag_id => ({ restaurant_id: restaurant.id, tag_id }))
     )
+  }
+
+  // Enviar push a los otros miembros del espacio
+  const admin = createAdminClient()
+  const { data: members } = await admin
+    .from('space_members')
+    .select('user_id')
+    .eq('space_id', spaceId)
+    .neq('user_id', user.id)
+
+  if (members && members.length > 0) {
+    const memberIds = members.map(m => m.user_id)
+    const { data: subs } = await admin
+      .from('push_subscriptions')
+      .select('subscription')
+      .in('user_id', memberIds)
+
+    if (subs && subs.length > 0) {
+      const { sendPushNotification } = await import('@/lib/push')
+      const restaurantName = formData.get('name') as string
+      await Promise.all(
+        subs.map(s =>
+          sendPushNotification(s.subscription, {
+            title: 'Nuevo restaurante 🍽️',
+            body: `Se agregó "${restaurantName}" a tu lista`,
+            url: `/restaurante/${restaurant.id}`,
+          })
+        )
+      )
+    }
   }
 
   revalidatePath('/')

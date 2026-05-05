@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import { getActiveSpaceId } from '@/lib/space'
 import Navbar from '@/components/Navbar'
+import PushSetup from '@/components/PushSetup'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -41,6 +42,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <main className="flex-1 pb-20 pt-16">
         {children}
       </main>
+      <PushSetup />
     </div>
   )
 }
