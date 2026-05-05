@@ -2,10 +2,19 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Star, MapPin, Clock, ExternalLink, Edit2, Trash2, Check, ChevronLeft, ChevronRight } from 'lucide-react'
-import { deleteRestaurant, toggleVisited } from '@/lib/actions/restaurants'
+import { ArrowLeft, Star, MapPin, Clock, ExternalLink, Edit2, Trash2, Check, ChevronLeft, ChevronRight, MessageCircle, Send, X } from 'lucide-react'
+import { deleteRestaurant, toggleVisited, addComment, deleteComment } from '@/lib/actions/restaurants'
 import { toast } from 'sonner'
 import type { Restaurant, Tag } from '@/lib/types'
+
+interface Comment {
+  id: string
+  user_id: string
+  content: string
+  rating: number | null
+  created_at: string
+  profiles: { display_name: string | null } | null
+}
 
 const PRICE_LABELS: Record<number, string> = { 1: '$', 2: '$$', 3: '$$$' }
 
@@ -25,14 +34,21 @@ function getTagStyle(color: string) {
 interface Props {
   restaurant: Restaurant & { tags?: Tag[]; profiles?: { display_name: string | null } | null }
   currentUserId: string
+  initialComments: Comment[]
 }
 
-export default function RestauranteDetailClient({ restaurant, currentUserId }: Props) {
+export default function RestauranteDetailClient({ restaurant, currentUserId, initialComments }: Props) {
   const [photoIndex, setPhotoIndex] = useState(0)
   const [visited, setVisited] = useState(restaurant.visited)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const photos = restaurant.photo_urls ?? []
+
+  const [comments, setComments] = useState<Comment[]>(initialComments)
+  const [commentText, setCommentText] = useState('')
+  const [commentRating, setCommentRating] = useState(0)
+  const [commentHover, setCommentHover] = useState(0)
+  const [submitting, setSubmitting] = useState(false)
 
   async function handleToggleVisited() {
     const newValue = !visited
@@ -45,6 +61,26 @@ export default function RestauranteDetailClient({ restaurant, currentUserId }: P
     setDeleting(true)
     toast.loading('Eliminando...')
     await deleteRestaurant(restaurant.id)
+  }
+
+  async function handleAddComment() {
+    if (!commentText.trim()) return
+    setSubmitting(true)
+    const result = await addComment(restaurant.id, commentText.trim(), commentRating || null)
+    if (result.error) {
+      toast.error('Error al agregar comentario')
+    } else if (result.data) {
+      setComments(prev => [result.data!, ...prev])
+      setCommentText('')
+      setCommentRating(0)
+      toast.success('Comentario agregado')
+    }
+    setSubmitting(false)
+  }
+
+  async function handleDeleteComment(commentId: string) {
+    setComments(prev => prev.filter(c => c.id !== commentId))
+    await deleteComment(commentId, restaurant.id)
   }
 
   return (
@@ -227,6 +263,90 @@ export default function RestauranteDetailClient({ restaurant, currentUserId }: P
             Abrir en Maps
           </a>
         )}
+
+        {/* Comments */}
+        <div>
+          <div className="flex items-center gap-2 mb-4">
+            <MessageCircle className="w-4 h-4 text-[#737373]" />
+            <h2 className="font-semibold text-sm text-[#737373] uppercase tracking-wider">
+              Reseñas {comments.length > 0 && `· ${comments.length}`}
+            </h2>
+          </div>
+
+          {/* Add comment form */}
+          <div className="glass rounded-xl p-4 border border-[rgba(255,255,255,0.06)] mb-4 space-y-3">
+            <div className="flex gap-1">
+              {[1,2,3,4,5].map(star => (
+                <button
+                  key={star}
+                  type="button"
+                  onClick={() => setCommentRating(commentRating === star ? 0 : star)}
+                  onMouseEnter={() => setCommentHover(star)}
+                  onMouseLeave={() => setCommentHover(0)}
+                >
+                  <Star className={`w-5 h-5 transition-colors ${star <= (commentHover || commentRating) ? 'text-[#FFD700] fill-[#FFD700]' : 'text-[#2A2A2A] fill-[#2A2A2A]'}`} />
+                </button>
+              ))}
+            </div>
+            <textarea
+              value={commentText}
+              onChange={e => setCommentText(e.target.value)}
+              placeholder="Dejá tu reseña..."
+              rows={2}
+              className="w-full bg-transparent text-sm text-white placeholder-[#4A4A4A] focus:outline-none resize-none"
+            />
+            <div className="flex justify-end">
+              <button
+                onClick={handleAddComment}
+                disabled={submitting || !commentText.trim()}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#FF4D4D] hover:bg-[#FF3333] text-white text-xs font-semibold transition-all active:scale-95 disabled:opacity-40"
+              >
+                <Send className="w-3 h-3" />
+                Publicar
+              </button>
+            </div>
+          </div>
+
+          {/* Comment list */}
+          {comments.length === 0 ? (
+            <p className="text-sm text-[#4A4A4A] text-center py-4">Sin reseñas aún. ¡Sé el primero!</p>
+          ) : (
+            <div className="space-y-3">
+              {comments.map(comment => (
+                <div key={comment.id} className="glass rounded-xl p-4 border border-[rgba(255,255,255,0.06)]">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <span className="text-sm font-medium text-white">
+                          {comment.profiles?.display_name ?? 'Usuario'}
+                        </span>
+                        {comment.rating && (
+                          <div className="flex gap-0.5">
+                            {Array.from({ length: 5 }).map((_, i) => (
+                              <Star key={i} className={`w-3 h-3 ${i < comment.rating! ? 'text-[#FFD700] fill-[#FFD700]' : 'text-[#2A2A2A] fill-[#2A2A2A]'}`} />
+                            ))}
+                          </div>
+                        )}
+                        <span className="text-xs text-[#4A4A4A]">
+                          {new Date(comment.created_at).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })}
+                        </span>
+                      </div>
+                      <p className="text-sm text-[#D4D4D4] leading-relaxed">{comment.content}</p>
+                    </div>
+                    {comment.user_id === currentUserId && (
+                      <button
+                        onClick={() => handleDeleteComment(comment.id)}
+                        className="text-[#4A4A4A] hover:text-[#FF4D4D] transition-colors flex-shrink-0"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Delete modal */}

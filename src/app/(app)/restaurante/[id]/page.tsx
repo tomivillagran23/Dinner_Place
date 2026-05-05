@@ -29,10 +29,22 @@ export default async function RestaurantePage({ params }: { params: Promise<{ id
 
   if (!restaurant) notFound()
 
+  const { data: comments } = await supabase
+    .from('comments')
+    .select('*, profiles(display_name)')
+    .eq('restaurant_id', id)
+    .order('created_at', { ascending: false })
+
   const normalized = {
     ...restaurant,
     tags: restaurant.tags?.map((rt: { tag: unknown }) => rt.tag).filter(Boolean) ?? [],
   }
 
-  return <RestauranteDetailClient restaurant={normalized} currentUserId={profile.id} />
+  return (
+    <RestauranteDetailClient
+      restaurant={normalized}
+      currentUserId={profile.id}
+      initialComments={comments ?? []}
+    />
+  )
 }

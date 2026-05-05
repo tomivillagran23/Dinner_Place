@@ -164,6 +164,31 @@ export async function toggleVisited(restaurantId: string, visited: boolean) {
   revalidatePath(`/restaurante/${restaurantId}`)
 }
 
+export async function addComment(restaurantId: string, content: string, rating: number | null) {
+  'use server'
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'No autenticado', data: null }
+
+  const { data, error } = await supabase
+    .from('comments')
+    .insert({ restaurant_id: restaurantId, user_id: user.id, content, rating })
+    .select('*, profiles(display_name)')
+    .single()
+
+  if (error) return { error: error.message, data: null }
+
+  revalidatePath(`/restaurante/${restaurantId}`)
+  return { error: null, data }
+}
+
+export async function deleteComment(commentId: string, restaurantId: string) {
+  'use server'
+  const supabase = await createClient()
+  await supabase.from('comments').delete().eq('id', commentId)
+  revalidatePath(`/restaurante/${restaurantId}`)
+}
+
 export async function createTag(name: string, color: string) {
   'use server'
   const supabase = await createClient()
