@@ -6,19 +6,21 @@ import type { Restaurant, Tag } from '@/lib/types'
 import { createTag } from '@/lib/actions/restaurants'
 import { toast } from 'sonner'
 
-interface FoursquarePlace {
-  fsq_id: string
-  name: string
-  location: {
-    address?: string
-    formatted_address?: string
-    locality?: string
-    neighborhood?: string[]
+interface NominatimPlace {
+  place_id: string
+  display_name: string
+  lat: string
+  lon: string
+  address?: {
+    amenity?: string
+    restaurant?: string
+    road?: string
+    suburb?: string
+    neighbourhood?: string
+    city?: string
+    town?: string
+    village?: string
   }
-  geocodes?: {
-    main?: { latitude: number; longitude: number }
-  }
-  categories?: { name: string }[]
 }
 
 interface Props {
@@ -74,7 +76,7 @@ export default function RestaurantForm({ restaurant, allTags, onSubmit }: Props)
 
   // Búsqueda Foursquare
   const [searchQuery, setSearchQuery] = useState('')
-  const [searchResults, setSearchResults] = useState<FoursquarePlace[]>([])
+  const [searchResults, setSearchResults] = useState<NominatimPlace[]>([])
   const [searchLoading, setSearchLoading] = useState(false)
   const [showDropdown, setShowDropdown] = useState(false)
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -106,9 +108,7 @@ export default function RestaurantForm({ restaurant, allTags, onSubmit }: Props)
       try {
         const res = await fetch(`/api/places?q=${encodeURIComponent(q)}`)
         const data = await res.json()
-        const places = (data.results ?? [])
-          .filter((r: { type: string }) => r.type === 'place')
-          .map((r: { place: FoursquarePlace }) => r.place)
+        const places: NominatimPlace[] = data.results ?? []
         setSearchResults(places)
         setShowDropdown(places.length > 0)
       } catch {
@@ -119,20 +119,18 @@ export default function RestaurantForm({ restaurant, allTags, onSubmit }: Props)
     }, 350)
   }
 
-  function selectPlace(place: FoursquarePlace) {
-    setNameValue(place.name)
-    setAddressValue(place.location.formatted_address ?? place.location.address ?? '')
-    setNeighborhoodValue(
-      place.location.neighborhood?.[0] ?? place.location.locality ?? ''
-    )
-    if (place.geocodes?.main) {
-      setPlaceLat(place.geocodes.main.latitude)
-      setPlaceLng(place.geocodes.main.longitude)
-    }
+  function selectPlace(place: NominatimPlace) {
+    const name = place.address?.amenity ?? place.address?.restaurant ?? place.display_name.split(',')[0]
+    const neighborhood = place.address?.suburb ?? place.address?.neighbourhood ?? place.address?.city ?? place.address?.town ?? ''
+    setNameValue(name)
+    setAddressValue(place.display_name)
+    setNeighborhoodValue(neighborhood)
+    setPlaceLat(parseFloat(place.lat))
+    setPlaceLng(parseFloat(place.lon))
     setSearchQuery('')
     setSearchResults([])
     setShowDropdown(false)
-    toast.success(`"${place.name}" cargado`)
+    toast.success(`"${name}" cargado`)
   }
 
   async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -221,22 +219,24 @@ export default function RestaurantForm({ restaurant, allTags, onSubmit }: Props)
 
           {showDropdown && (
             <div className="absolute z-50 w-full mt-1 rounded-xl bg-[#1A1A1A] border border-[rgba(255,255,255,0.08)] overflow-hidden shadow-xl">
-              {searchResults.map(place => (
-                <button
-                  key={place.fsq_id}
-                  type="button"
-                  onClick={() => selectPlace(place)}
-                  className="w-full flex items-start gap-3 px-4 py-3 hover:bg-[rgba(255,255,255,0.06)] transition-colors text-left"
-                >
-                  <MapPin className="w-4 h-4 text-[#FF4D4D] mt-0.5 flex-shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-white truncate">{place.name}</p>
-                    <p className="text-xs text-[#737373] truncate">
-                      {place.location.formatted_address ?? place.location.address ?? ''}
-                    </p>
-                  </div>
-                </button>
-              ))}
+              {searchResults.map(place => {
+                const name = place.address?.amenity ?? place.address?.restaurant ?? place.display_name.split(',')[0]
+                const subtitle = place.display_name.split(',').slice(1, 3).join(',').trim()
+                return (
+                  <button
+                    key={place.place_id}
+                    type="button"
+                    onClick={() => selectPlace(place)}
+                    className="w-full flex items-start gap-3 px-4 py-3 hover:bg-[rgba(255,255,255,0.06)] transition-colors text-left"
+                  >
+                    <MapPin className="w-4 h-4 text-[#FF4D4D] mt-0.5 flex-shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-white truncate">{name}</p>
+                      <p className="text-xs text-[#737373] truncate">{subtitle}</p>
+                    </div>
+                  </button>
+                )
+              })}
             </div>
           )}
 

@@ -9,18 +9,17 @@ export async function GET(request: NextRequest) {
   const query = request.nextUrl.searchParams.get('q')
   if (!query?.trim()) return NextResponse.json({ results: [] })
 
-  const res = await fetch(
-    `https://api.foursquare.com/v3/autocomplete?query=${encodeURIComponent(query)}&types=place&limit=6`,
-    {
-      headers: {
-        Authorization: process.env.FOURSQUARE_API_KEY!,
-        Accept: 'application/json',
-      },
-    }
-  )
+  const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&countrycodes=ar&format=json&limit=6&addressdetails=1`
+
+  const res = await fetch(url, {
+    headers: {
+      'User-Agent': 'DinnerPlace/1.0 (dinnerplace.app)',
+      'Accept-Language': 'es',
+    },
+  })
 
   if (!res.ok) return NextResponse.json({ results: [] })
 
   const data = await res.json()
-  return NextResponse.json(data)
+  return NextResponse.json({ results: data })
 }
