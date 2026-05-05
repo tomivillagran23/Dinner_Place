@@ -1,9 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { Copy, Check, Crown, UserX, LogOut, Users } from 'lucide-react'
+import { Copy, Check, Crown, UserX, LogOut, Users, Pencil, X } from 'lucide-react'
 import { toast } from 'sonner'
-import { removeMember, leaveSpace, switchSpace } from '@/lib/actions/spaces'
+import { removeMember, leaveSpace, renameSpace } from '@/lib/actions/spaces'
 import Link from 'next/link'
 
 interface Member {
@@ -31,6 +31,9 @@ export default function EspacioClient({ space, members, currentUserId, isAdmin }
   const [copied, setCopied] = useState(false)
   const [removing, setRemoving] = useState<string | null>(null)
   const [showLeave, setShowLeave] = useState(false)
+  const [editingName, setEditingName] = useState(false)
+  const [nameValue, setNameValue] = useState(space.name)
+  const [savingName, setSavingName] = useState(false)
 
   function copyCode() {
     navigator.clipboard.writeText(space.invite_code)
@@ -50,6 +53,19 @@ export default function EspacioClient({ space, members, currentUserId, isAdmin }
     await leaveSpace(space.id)
   }
 
+  async function handleSaveName() {
+    if (!nameValue.trim() || nameValue === space.name) { setEditingName(false); return }
+    setSavingName(true)
+    const result = await renameSpace(space.id, nameValue)
+    if (result?.error) {
+      toast.error('Error al renombrar')
+    } else {
+      toast.success('Nombre actualizado')
+      setEditingName(false)
+    }
+    setSavingName(false)
+  }
+
   return (
     <div className="max-w-2xl mx-auto px-4 py-6 animate-fade-in space-y-6">
       {/* Space info */}
@@ -58,7 +74,32 @@ export default function EspacioClient({ space, members, currentUserId, isAdmin }
         <div className="glass rounded-2xl p-5 border border-[rgba(255,255,255,0.06)] space-y-4">
           <div>
             <p className="text-xs text-[#737373] mb-1">Nombre</p>
-            <p className="font-semibold text-lg">{space.name}</p>
+            {isAdmin && editingName ? (
+              <div className="flex items-center gap-2">
+                <input
+                  value={nameValue}
+                  onChange={e => setNameValue(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') handleSaveName(); if (e.key === 'Escape') setEditingName(false) }}
+                  autoFocus
+                  className="flex-1 bg-[rgba(255,255,255,0.06)] border border-[rgba(255,77,77,0.4)] rounded-xl px-3 py-1.5 text-base font-semibold focus:outline-none"
+                />
+                <button onClick={handleSaveName} disabled={savingName} className="px-3 py-1.5 rounded-xl bg-[#FF4D4D] text-white text-xs font-semibold disabled:opacity-50">
+                  {savingName ? '...' : 'Guardar'}
+                </button>
+                <button onClick={() => { setEditingName(false); setNameValue(space.name) }} className="text-[#737373] hover:text-white">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <p className="font-semibold text-lg">{nameValue}</p>
+                {isAdmin && (
+                  <button onClick={() => setEditingName(true)} className="text-[#4A4A4A] hover:text-[#FF4D4D] transition-colors">
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            )}
           </div>
           <div>
             <p className="text-xs text-[#737373] mb-1">Código de invitación</p>

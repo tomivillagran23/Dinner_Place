@@ -78,6 +78,20 @@ export async function switchSpace(spaceId: string) {
   redirect('/')
 }
 
+export async function renameSpace(spaceId: string, name: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'No autenticado' }
+
+  const admin = createAdminClient()
+  const { data: space } = await admin.from('couples').select('created_by').eq('id', spaceId).single()
+  if (space?.created_by !== user.id) return { error: 'Sin permisos' }
+
+  await admin.from('couples').update({ name: name.trim() }).eq('id', spaceId)
+  revalidatePath('/espacio')
+  return { error: null }
+}
+
 export async function removeMember(spaceId: string, userId: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

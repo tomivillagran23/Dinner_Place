@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Star, MapPin, Clock, ExternalLink, Edit2, Trash2, Check, ChevronLeft, ChevronRight, MessageCircle, Send, X } from 'lucide-react'
+import { ArrowLeft, Star, MapPin, Clock, ExternalLink, Edit2, Trash2, Check, ChevronLeft, ChevronRight, MessageCircle, Send, X, Share2 } from 'lucide-react'
 import { deleteRestaurant, toggleVisited, addComment, deleteComment } from '@/lib/actions/restaurants'
 import { toast } from 'sonner'
 import type { Restaurant, Tag } from '@/lib/types'
@@ -253,6 +253,23 @@ export default function RestauranteDetailClient({ restaurant, currentUserId, isA
             ))}
           </div>
         )}
+
+        {/* Share button */}
+        <button
+          onClick={() => {
+            const url = window.location.href
+            if (navigator.share) {
+              navigator.share({ title: restaurant.name, text: `Mirá este restaurante: ${restaurant.name}`, url })
+            } else {
+              navigator.clipboard.writeText(url)
+              toast.success('Link copiado')
+            }
+          }}
+          className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] text-sm text-[#737373] hover:text-white hover:border-[rgba(255,255,255,0.2)] transition-all active:scale-95"
+        >
+          <Share2 className="w-4 h-4" />
+          Compartir
+        </button>
 
         {/* Maps button */}
         {restaurant.google_maps_url && (
