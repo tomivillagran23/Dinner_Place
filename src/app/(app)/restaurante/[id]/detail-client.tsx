@@ -34,10 +34,11 @@ function getTagStyle(color: string) {
 interface Props {
   restaurant: Restaurant & { tags?: Tag[]; profiles?: { display_name: string | null } | null }
   currentUserId: string
+  isAdmin: boolean
   initialComments: Comment[]
 }
 
-export default function RestauranteDetailClient({ restaurant, currentUserId, initialComments }: Props) {
+export default function RestauranteDetailClient({ restaurant, currentUserId, isAdmin, initialComments }: Props) {
   const [photoIndex, setPhotoIndex] = useState(0)
   const [visited, setVisited] = useState(restaurant.visited)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
@@ -142,12 +143,14 @@ export default function RestauranteDetailClient({ restaurant, currentUserId, ini
             >
               <Edit2 className="w-4 h-4" />
             </Link>
-            <button
-              onClick={() => setShowDeleteModal(true)}
-              className="w-9 h-9 glass rounded-xl flex items-center justify-center hover:bg-[rgba(255,77,77,0.2)] transition-colors"
-            >
-              <Trash2 className="w-4 h-4 text-[#FF4D4D]" />
-            </button>
+            {(isAdmin || restaurant.added_by === currentUserId) && (
+              <button
+                onClick={() => setShowDeleteModal(true)}
+                className="w-9 h-9 glass rounded-xl flex items-center justify-center hover:bg-[rgba(255,77,77,0.2)] transition-colors"
+              >
+                <Trash2 className="w-4 h-4 text-[#FF4D4D]" />
+              </button>
+            )}
           </div>
         </div>
       </div>

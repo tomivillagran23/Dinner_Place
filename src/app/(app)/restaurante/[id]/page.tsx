@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect, notFound } from 'next/navigation'
+import { getActiveSpaceId } from '@/lib/space'
 import RestauranteDetailClient from './detail-client'
 
 export default async function RestaurantePage({ params }: { params: Promise<{ id: string }> }) {
@@ -8,43 +10,41 @@ export default async function RestaurantePage({ params }: { params: Promise<{ id
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('couple_id, id')
-    .eq('id', user.id)
-    .single()
+  const spaceId = await getActiveSpaceId()
+  if (!spaceId) redirect('/espacios')
 
-  if (!profile?.couple_id) redirect('/onboarding')
+  const admin = createAdminClient()
 
-  const { data: restaurant } = await supabase
-    .from('restaurants')
-    .select(`
-      *,
-      tags:restaurant_tags(tag:tags(*)),
-      profiles!added_by(display_name, avatar_url)
-    `)
-    .eq('id', id)
-    .eq('couple_id', profile.couple_id)
-    .single()
+  const [restaurantResult, spaceResult, commentsResult] = await Promise.all([
+    supabase
+      .from('restaurants')
+      .select(`*, tags:restaurant_tags(tag:tags(*)), profiles!added_by(display_name, avatar_url)`)
+      .eq('id', id)
+      .eq('couple_id', spaceId)
+      .single(),
+    admin.from('couples').select('created_by').eq('id', spaceId).single(),
+    supabase
+      .from('comments')
+      .select('*, profiles(display_name)')
+      .eq('restaurant_id', id)
+      .order('created_at', { ascending: false }),
+  ])
 
-  if (!restaurant) notFound()
+  if (!restaurantResult.data) notFound()
 
-  const { data: comments } = await supabase
-    .from('comments')
-    .select('*, profiles(display_name)')
-    .eq('restaurant_id', id)
-    .order('created_at', { ascending: false })
+  const isAdmin = spaceResult.data?.created_by === user.id
 
   const normalized = {
-    ...restaurant,
-    tags: restaurant.tags?.map((rt: { tag: unknown }) => rt.tag).filter(Boolean) ?? [],
+    ...restaurantResult.data,
+    tags: restaurantResult.data.tags?.map((rt: { tag: unknown }) => rt.tag).filter(Boolean) ?? [],
   }
 
   return (
     <RestauranteDetailClient
       restaurant={normalized}
-      currentUserId={profile.id}
-      initialComments={comments ?? []}
+      currentUserId={user.id}
+      isAdmin={isAdmin}
+      initialComments={commentsResult.data ?? []}
     />
   )
 }
