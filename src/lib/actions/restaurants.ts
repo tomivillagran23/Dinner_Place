@@ -31,7 +31,11 @@ export async function createRestaurant(formData: FormData) {
   const profile = { couple_id: spaceId }
 
   const mapsUrl = formData.get('google_maps_url') as string
-  const { lat, lng } = mapsUrl ? parseLatLng(mapsUrl) : { lat: null, lng: null }
+  const directLat = formData.get('latitude') as string
+  const directLng = formData.get('longitude') as string
+  const { lat: parsedLat, lng: parsedLng } = mapsUrl ? parseLatLng(mapsUrl) : { lat: null, lng: null }
+  const lat = directLat ? parseFloat(directLat) : parsedLat
+  const lng = directLng ? parseFloat(directLng) : parsedLng
 
   const photoUrlsRaw = formData.get('photo_urls') as string
   const photoUrls = photoUrlsRaw ? photoUrlsRaw.split(',').filter(Boolean) : []
@@ -86,7 +90,11 @@ export async function updateRestaurant(restaurantId: string, formData: FormData)
   if (!user) return { error: 'No autenticado' }
 
   const mapsUrl = formData.get('google_maps_url') as string
-  const { lat, lng } = mapsUrl ? parseLatLng(mapsUrl) : { lat: null, lng: null }
+  const directLat = formData.get('latitude') as string
+  const directLng = formData.get('longitude') as string
+  const { lat: parsedLat, lng: parsedLng } = mapsUrl ? parseLatLng(mapsUrl) : { lat: null, lng: null }
+  const lat = directLat ? parseFloat(directLat) : parsedLat
+  const lng = directLng ? parseFloat(directLng) : parsedLng
 
   const photoUrlsRaw = formData.get('photo_urls') as string
   const photoUrls = photoUrlsRaw ? photoUrlsRaw.split(',').filter(Boolean) : []

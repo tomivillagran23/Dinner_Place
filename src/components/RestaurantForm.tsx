@@ -1,10 +1,25 @@
 'use client'
 
-import { useState, useRef } from 'react'
-import { Star, Plus, X, Loader2, Upload } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import { Star, Plus, X, Loader2, Upload, Search, MapPin } from 'lucide-react'
 import type { Restaurant, Tag } from '@/lib/types'
 import { createTag } from '@/lib/actions/restaurants'
 import { toast } from 'sonner'
+
+interface FoursquarePlace {
+  fsq_id: string
+  name: string
+  location: {
+    address?: string
+    formatted_address?: string
+    locality?: string
+    neighborhood?: string[]
+  }
+  geocodes?: {
+    main?: { latitude: number; longitude: number }
+  }
+  categories?: { name: string }[]
+}
 
 interface Props {
   restaurant?: Restaurant & { tags?: Tag[] }
@@ -49,6 +64,76 @@ export default function RestaurantForm({ restaurant, allTags, onSubmit }: Props)
   const [uploading, setUploading] = useState(false)
   const [pinColor, setPinColor] = useState<string>(restaurant?.pin_color ?? '#FF4D4D')
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Campos controlados para autocompletado
+  const [nameValue, setNameValue] = useState(restaurant?.name ?? '')
+  const [addressValue, setAddressValue] = useState(restaurant?.address ?? '')
+  const [neighborhoodValue, setNeighborhoodValue] = useState(restaurant?.neighborhood ?? '')
+  const [placeLat, setPlaceLat] = useState<number | null>(restaurant?.latitude ?? null)
+  const [placeLng, setPlaceLng] = useState<number | null>(restaurant?.longitude ?? null)
+
+  // Búsqueda Foursquare
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<FoursquarePlace[]>([])
+  const [searchLoading, setSearchLoading] = useState(false)
+  const [showDropdown, setShowDropdown] = useState(false)
+  const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setShowDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  function handleSearchChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const q = e.target.value
+    setSearchQuery(q)
+
+    if (searchTimeout.current) clearTimeout(searchTimeout.current)
+    if (!q.trim()) {
+      setSearchResults([])
+      setShowDropdown(false)
+      return
+    }
+
+    searchTimeout.current = setTimeout(async () => {
+      setSearchLoading(true)
+      try {
+        const res = await fetch(`/api/places?q=${encodeURIComponent(q)}`)
+        const data = await res.json()
+        const places = (data.results ?? [])
+          .filter((r: { type: string }) => r.type === 'place')
+          .map((r: { place: FoursquarePlace }) => r.place)
+        setSearchResults(places)
+        setShowDropdown(places.length > 0)
+      } catch {
+        // silencioso
+      } finally {
+        setSearchLoading(false)
+      }
+    }, 350)
+  }
+
+  function selectPlace(place: FoursquarePlace) {
+    setNameValue(place.name)
+    setAddressValue(place.location.formatted_address ?? place.location.address ?? '')
+    setNeighborhoodValue(
+      place.location.neighborhood?.[0] ?? place.location.locality ?? ''
+    )
+    if (place.geocodes?.main) {
+      setPlaceLat(place.geocodes.main.latitude)
+      setPlaceLng(place.geocodes.main.longitude)
+    }
+    setSearchQuery('')
+    setSearchResults([])
+    setShowDropdown(false)
+    toast.success(`"${place.name}" cargado`)
+  }
 
   async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files
@@ -103,6 +188,8 @@ export default function RestaurantForm({ restaurant, allTags, onSubmit }: Props)
     formData.set('tags', selectedTags.join(','))
     formData.set('photo_urls', photoUrls.join(','))
     formData.set('pin_color', pinColor)
+    if (placeLat !== null) formData.set('latitude', String(placeLat))
+    if (placeLng !== null) formData.set('longitude', String(placeLng))
 
     const result = await onSubmit(formData)
     if (result?.error) {
@@ -113,13 +200,63 @@ export default function RestaurantForm({ restaurant, allTags, onSubmit }: Props)
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
+
+      {/* Place Search */}
+      {!restaurant && (
+        <div ref={dropdownRef} className="relative">
+          <label className="block text-sm text-[#737373] mb-1.5">Buscar lugar</label>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#4A4A4A]" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={handleSearchChange}
+              placeholder="Buscar McDonald's, Nobu, cualquier lugar..."
+              className="w-full pl-9 pr-9 py-2.5 rounded-xl bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.08)] text-white placeholder-[#4A4A4A] focus:outline-none focus:border-[#FF4D4D] transition-all text-sm"
+            />
+            {searchLoading && (
+              <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#737373] animate-spin" />
+            )}
+          </div>
+
+          {showDropdown && (
+            <div className="absolute z-50 w-full mt-1 rounded-xl bg-[#1A1A1A] border border-[rgba(255,255,255,0.08)] overflow-hidden shadow-xl">
+              {searchResults.map(place => (
+                <button
+                  key={place.fsq_id}
+                  type="button"
+                  onClick={() => selectPlace(place)}
+                  className="w-full flex items-start gap-3 px-4 py-3 hover:bg-[rgba(255,255,255,0.06)] transition-colors text-left"
+                >
+                  <MapPin className="w-4 h-4 text-[#FF4D4D] mt-0.5 flex-shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-white truncate">{place.name}</p>
+                    <p className="text-xs text-[#737373] truncate">
+                      {place.location.formatted_address ?? place.location.address ?? ''}
+                    </p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {nameValue && (
+            <p className="text-xs text-[#4DFF91] mt-1.5 flex items-center gap-1">
+              <MapPin className="w-3 h-3" />
+              Datos cargados desde Foursquare — podés editarlos abajo
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Name */}
       <div>
         <label className="block text-sm text-[#737373] mb-1.5">Nombre *</label>
         <input
           name="name"
           required
-          defaultValue={restaurant?.name}
+          value={nameValue}
+          onChange={e => setNameValue(e.target.value)}
           placeholder="El restaurante de mis sueños"
           className="w-full px-3 py-2.5 rounded-xl bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.08)] text-white placeholder-[#4A4A4A] focus:outline-none focus:border-[#FF4D4D] transition-all text-sm"
         />
@@ -130,7 +267,8 @@ export default function RestaurantForm({ restaurant, allTags, onSubmit }: Props)
         <label className="block text-sm text-[#737373] mb-1.5">Dirección</label>
         <input
           name="address"
-          defaultValue={restaurant?.address}
+          value={addressValue}
+          onChange={e => setAddressValue(e.target.value)}
           placeholder="Calle y número, ciudad"
           className="w-full px-3 py-2.5 rounded-xl bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.08)] text-white placeholder-[#4A4A4A] focus:outline-none focus:border-[#FF4D4D] transition-all text-sm"
         />
@@ -146,7 +284,9 @@ export default function RestaurantForm({ restaurant, allTags, onSubmit }: Props)
           placeholder="https://maps.google.com/..."
           className="w-full px-3 py-2.5 rounded-xl bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.08)] text-white placeholder-[#4A4A4A] focus:outline-none focus:border-[#FF4D4D] transition-all text-sm"
         />
-        <p className="text-xs text-[#4A4A4A] mt-1">Las coordenadas se extraen automáticamente</p>
+        <p className="text-xs text-[#4A4A4A] mt-1">
+          {placeLat ? 'Coordenadas cargadas desde la búsqueda' : 'Las coordenadas se extraen automáticamente'}
+        </p>
       </div>
 
       {/* Two columns: Cuisine + Neighborhood */}
@@ -169,7 +309,8 @@ export default function RestaurantForm({ restaurant, allTags, onSubmit }: Props)
           <label className="block text-sm text-[#737373] mb-1.5">Barrio</label>
           <input
             name="neighborhood"
-            defaultValue={restaurant?.neighborhood ?? ''}
+            value={neighborhoodValue}
+            onChange={e => setNeighborhoodValue(e.target.value)}
             placeholder="Ej: Polanco"
             className="w-full px-3 py-2.5 rounded-xl bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.08)] text-white placeholder-[#4A4A4A] focus:outline-none focus:border-[#FF4D4D] transition-all text-sm"
           />
