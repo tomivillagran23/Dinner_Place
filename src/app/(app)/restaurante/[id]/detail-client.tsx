@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, Star, MapPin, Clock, ExternalLink, Edit2, Trash2, Check, ChevronLeft, ChevronRight, MessageCircle, Send, X, Share2 } from 'lucide-react'
-import { deleteRestaurant, toggleVisited, addComment, deleteComment } from '@/lib/actions/restaurants'
+import { deleteRestaurant, toggleVisited, addComment, deleteComment, rateRestaurant } from '@/lib/actions/restaurants'
 import { toast } from 'sonner'
 import type { Restaurant, Tag } from '@/lib/types'
 
@@ -13,6 +13,13 @@ interface Comment {
   content: string
   rating: number | null
   created_at: string
+  profiles: { display_name: string | null } | null
+}
+
+interface SpaceRating {
+  id: string
+  user_id: string
+  rating: number
   profiles: { display_name: string | null } | null
 }
 
@@ -34,11 +41,13 @@ function getTagStyle(color: string) {
 interface Props {
   restaurant: Restaurant & { tags?: Tag[]; profiles?: { display_name: string | null } | null }
   currentUserId: string
+  spaceId: string
   isAdmin: boolean
   initialComments: Comment[]
+  initialRatings: SpaceRating[]
 }
 
-export default function RestauranteDetailClient({ restaurant, currentUserId, isAdmin, initialComments }: Props) {
+export default function RestauranteDetailClient({ restaurant, currentUserId, spaceId, isAdmin, initialComments, initialRatings }: Props) {
   const [photoIndex, setPhotoIndex] = useState(0)
   const [visited, setVisited] = useState(restaurant.visited)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
@@ -50,6 +59,23 @@ export default function RestauranteDetailClient({ restaurant, currentUserId, isA
   const [commentRating, setCommentRating] = useState(0)
   const [commentHover, setCommentHover] = useState(0)
   const [submitting, setSubmitting] = useState(false)
+
+  const [ratings, setRatings] = useState<SpaceRating[]>(initialRatings)
+  const myRating = ratings.find(r => r.user_id === currentUserId)?.rating ?? 0
+  const [ratingHover, setRatingHover] = useState(0)
+  const avgRating = ratings.length > 0
+    ? Math.round((ratings.reduce((s, r) => s + r.rating, 0) / ratings.length) * 10) / 10
+    : null
+
+  async function handleRate(value: number) {
+    const result = await rateRestaurant(restaurant.id, spaceId, value)
+    if (result?.error) { toast.error('Error al guardar rating'); return }
+    setRatings(prev => {
+      const existing = prev.find(r => r.user_id === currentUserId)
+      if (existing) return prev.map(r => r.user_id === currentUserId ? { ...r, rating: value } : r)
+      return [...prev, { id: crypto.randomUUID(), user_id: currentUserId, rating: value, profiles: null }]
+    })
+  }
 
   async function handleToggleVisited() {
     const newValue = !visited
@@ -283,6 +309,54 @@ export default function RestauranteDetailClient({ restaurant, currentUserId, isA
             Abrir en Maps
           </a>
         )}
+
+        {/* Space ratings */}
+        <div className="glass rounded-xl p-4 border border-[rgba(255,255,255,0.06)] space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-[#737373] uppercase tracking-wider font-semibold">Rating del espacio</p>
+            {avgRating && (
+              <div className="flex items-center gap-1.5">
+                <Star className="w-4 h-4 text-[#FFD700] fill-[#FFD700]" />
+                <span className="text-white font-bold">{avgRating}</span>
+                <span className="text-xs text-[#4A4A4A]">({ratings.length})</span>
+              </div>
+            )}
+          </div>
+
+          <div>
+            <p className="text-xs text-[#737373] mb-1.5">Tu puntuación</p>
+            <div className="flex gap-1">
+              {[1,2,3,4,5].map(star => (
+                <button
+                  key={star}
+                  type="button"
+                  onClick={() => handleRate(star)}
+                  onMouseEnter={() => setRatingHover(star)}
+                  onMouseLeave={() => setRatingHover(0)}
+                  className="transition-transform hover:scale-110 active:scale-95"
+                >
+                  <Star className={`w-7 h-7 transition-colors ${star <= (ratingHover || myRating) ? 'text-[#FFD700] fill-[#FFD700]' : 'text-[#2A2A2A] fill-[#2A2A2A]'}`} />
+                </button>
+              ))}
+              {myRating > 0 && <span className="text-xs text-[#737373] self-center ml-1">Tu voto: {myRating}★</span>}
+            </div>
+          </div>
+
+          {ratings.filter(r => r.user_id !== currentUserId).length > 0 && (
+            <div className="space-y-1.5 pt-1 border-t border-[rgba(255,255,255,0.06)]">
+              {ratings.filter(r => r.user_id !== currentUserId).map(r => (
+                <div key={r.id} className="flex items-center justify-between">
+                  <span className="text-xs text-[#737373]">{r.profiles?.display_name ?? 'Usuario'}</span>
+                  <div className="flex gap-0.5">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <Star key={i} className={`w-3 h-3 ${i < r.rating ? 'text-[#FFD700] fill-[#FFD700]' : 'text-[#2A2A2A] fill-[#2A2A2A]'}`} />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* Comments */}
         <div>

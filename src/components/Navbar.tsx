@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { UtensilsCrossed, Home, Map, LogOut, Copy, Check, ChevronDown, Users } from 'lucide-react'
+import { UtensilsCrossed, Home, Map, LogOut, Copy, Check, ChevronDown, Users, Trophy } from 'lucide-react'
 import { signOut } from '@/lib/actions/auth'
 import { switchSpace } from '@/lib/actions/spaces'
 import { useState } from 'react'
@@ -37,6 +37,7 @@ export default function Navbar({ profile, space, userSpaces }: Props) {
   const navLinks = [
     { href: '/', icon: Home, label: 'Lista' },
     { href: '/mapa', icon: Map, label: 'Mapa' },
+    { href: '/ranking', icon: Trophy, label: 'Ranking' },
     { href: '/espacio', icon: Users, label: 'Espacio' },
   ]
 

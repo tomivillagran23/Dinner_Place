@@ -15,7 +15,7 @@ export default async function RestaurantePage({ params }: { params: Promise<{ id
 
   const admin = createAdminClient()
 
-  const [restaurantResult, spaceResult, commentsResult] = await Promise.all([
+  const [restaurantResult, spaceResult, commentsResult, ratingsResult] = await Promise.all([
     supabase
       .from('restaurants')
       .select(`*, tags:restaurant_tags(tag:tags(*)), profiles!added_by(display_name, avatar_url)`)
@@ -28,6 +28,10 @@ export default async function RestaurantePage({ params }: { params: Promise<{ id
       .select('*, profiles(display_name)')
       .eq('restaurant_id', id)
       .order('created_at', { ascending: false }),
+    supabase
+      .from('ratings')
+      .select('*, profiles(display_name)')
+      .eq('restaurant_id', id),
   ])
 
   if (!restaurantResult.data) notFound()
@@ -43,8 +47,10 @@ export default async function RestaurantePage({ params }: { params: Promise<{ id
     <RestauranteDetailClient
       restaurant={normalized}
       currentUserId={user.id}
+      spaceId={spaceId}
       isAdmin={isAdmin}
       initialComments={commentsResult.data ?? []}
+      initialRatings={ratingsResult.data ?? []}
     />
   )
 }

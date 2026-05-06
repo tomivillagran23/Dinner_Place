@@ -195,6 +195,25 @@ export async function toggleVisited(restaurantId: string, visited: boolean) {
   revalidatePath(`/restaurante/${restaurantId}`)
 }
 
+export async function rateRestaurant(restaurantId: string, spaceId: string, rating: number) {
+  'use server'
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'No autenticado' }
+
+  const { error } = await supabase
+    .from('ratings')
+    .upsert(
+      { restaurant_id: restaurantId, user_id: user.id, space_id: spaceId, rating },
+      { onConflict: 'restaurant_id,user_id' }
+    )
+
+  if (error) return { error: error.message }
+  revalidatePath(`/restaurante/${restaurantId}`)
+  revalidatePath('/ranking')
+  return { error: null }
+}
+
 export async function addComment(restaurantId: string, content: string, rating: number | null) {
   'use server'
   const supabase = await createClient()
